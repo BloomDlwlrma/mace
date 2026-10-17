@@ -38,7 +38,15 @@ class CheckpointBuilder:
         state: CheckpointState, checkpoint: Checkpoint, strict: bool
     ) -> None:
         state.model.load_state_dict(checkpoint["model"], strict=strict)  # type: ignore
-        state.optimizer.load_state_dict(checkpoint["optimizer"])
+        optimizer_state = dict(checkpoint["optimizer"])
+        saved_groups = [dict(group) for group in optimizer_state["param_groups"]]
+        configured_groups = state.optimizer.state_dict()["param_groups"]
+        if len(saved_groups) == len(configured_groups):
+            for saved_group, configured_group in zip(saved_groups, configured_groups):
+                for key, value in configured_group.items():
+                    saved_group.setdefault(key, value)
+            optimizer_state["param_groups"] = saved_groups
+        state.optimizer.load_state_dict(optimizer_state)
         state.lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
 
 
